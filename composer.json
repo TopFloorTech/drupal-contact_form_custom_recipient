@@ -1,0 +1,8 @@
+{
+  "name": "drupal/contact_form_custom_recipient",
+  "type": "drupal-module",
+  "description": "Allows contact form recipient email to be set by a field on the form.",
+  "homepage": "https://github.com/TopFloorTech/drupal-contact_form_custom_recipient",
+  "license": "GPL-2.0+",
+  "minimum-stability": "dev"
+}
