@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * @file
+ * Contains contact_form_custom_recipient.module.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function contact_form_custom_recipient_form_contact_message_contact_form_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  array_unshift($form['actions']['submit']['#submit'], 'contact_form_custom_recipient_form_contact_message_contact_form_form_alter_submit');
+}
+
+/**
+ * Form submission handler for contact_message_contact_form().
+ */
+function contact_form_custom_recipient_form_contact_message_contact_form_form_alter_submit(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  // Load contact form configuration.
+  $message = $form_state->getFormObject()->getEntity();
+  $entity = $message->getContactForm();
+
+  if ($entity->getThirdPartySetting('contact_form_custom_recipient', 'recipient_field_custom')) {
+    // Find specified field for recipient_field.
+    $field = $entity->getThirdPartySetting('contact_form_custom_recipient', 'recipient_field');
+    $recipient = $form_state->getValue($field)[0]['value'];
+
+    // Insert the email recipient.
+    $entity->setRecipients([$recipient]);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function contact_form_custom_recipient_form_contact_form_edit_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  // Get the available fields.
+  $entity = \Drupal::entityTypeManager()
+    ->getStorage('contact_form')
+    ->load($form['id']['#default_value']);
+  $message = \Drupal::entityTypeManager()
+    ->getStorage('contact_message')
+    ->create(array(
+      'contact_form' => $entity->id(),
+    ));
+
+  $field_configs = array_filter($message->getFieldDefinitions(), function ($n) {
+    return is_a($n, 'Drupal\field\Entity\FieldConfig');
+  });
+
+  $field_options['_none'] = '- Select Field -';
+
+  $field_options += array_map(function ($n) {
+    return $n->label();
+  }, $field_configs);
+
+  // Add custom fields.
+  $form['recipient_custom'] = array(
+    '#weight' => 0,
+  );
+
+  $form['recipient_custom']['recipient_field_custom'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Custom recipient'),
+    '#description' => t('Allow the user to use a field to determine recipient'),
+    '#default_value' => $entity->getThirdPartySetting('contact_form_custom_recipient', 'recipient_field_custom'),
+  );
+
+  $form['recipient_custom']['recipient_field'] = array(
+    '#type' => 'select',
+    '#title' => t('Recipient Field'),
+    '#default_value' => $entity->getThirdPartySetting('contact_form_custom_recipient', 'recipient_field'),
+    '#options' => $field_options,
+    '#states' => array(
+      'invisible' => array(
+        ':input[name="recipient_field_custom"]' => array('checked' => FALSE),
+      ),
+    ),
+  );
+
+  // Set dynamic state of existing recipient, and move it into same container to ensure order.
+  $form['recipients']['#states']['invisible'] = array(
+    ':input[name="recipient_field_custom"]' => array('checked' => TRUE),
+  );
+
+  $form['recipient_custom']['recipients'] = $form['recipients'];
+
+  unset($form['recipients']);
+
+  $form['#entity_builders'][] = 'contact_form_custom_recipient_form_contact_form_edit_form_builder';
+}
+
+/**
+ * Entity builder for the contact form edit form with third party options.
+ *
+ * @see contact_form_custom_recipient_form_contact_form_edit_form_alter()
+ */
+function contact_form_custom_recipient_form_contact_form_edit_form_builder($entity_type, $type, &$form, $form_state) {
+  if ($form_state->getValue('recipient_field')) {
+    $type->setThirdPartySetting('contact_form_custom_recipient', 'recipient_field_custom', $form_state->getValue('recipient_field_custom'));
+    $type->setThirdPartySetting('contact_form_custom_recipient', 'recipient_field', $form_state->getValue('recipient_field'));
+  }
+}

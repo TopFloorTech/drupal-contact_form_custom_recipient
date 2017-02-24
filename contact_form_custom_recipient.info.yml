@@ -1,0 +1,5 @@
+name: Contact Form Custom Recipient
+type: module
+description: Alter recipient of contact form via field definition
+core: 8.x
+package: Custom
